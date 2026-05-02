@@ -30,3 +30,5 @@ SafeTakeAll, Skyrim'de "Hepsini Al" özelliği kullanıldığında meydana gelen
 - **Developed by:** [arifkulpu](https://github.com/arifkulpu)
 - **Geliştiren:** [arifkulpu](https://github.com/arifkulpu)
 
+### License / Lisans
+Copyright (c) 2026 Arif KULPU. All Rights Reserved. — Tüm Hakları Saklıdır. See LICENSE for details.
