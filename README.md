@@ -1,7 +1,7 @@
 # SafeTakeAll (NG)
 
 ### English
-SafeTakeAll is a specialized SKSE plugin designed to eliminate crashes and instability when using the "Take All" feature in Skyrim. It implements a robust, engine-level safety layer during mass inventory transfers to prevent memory corruption, physics engine overflows, and quest state corruption.
+SafeTakeAll is a specialized SKSE plugin designed to eliminate crashes and instability when using the "Take All" feature in Skyrim. It implements a robust, engine-level safety layer during mass inventory transfers to prevent memory corruption, and quest state corruption.
 
 **Key Features:**
 - **Atomic Transfer Logic:** Uses the engine's internal `AddObjectToContainer` mechanisms to ensure items are moved safely without duplication or loss.
@@ -14,7 +14,7 @@ SafeTakeAll is a specialized SKSE plugin designed to eliminate crashes and insta
 ---
 
 ### Türkçe
-SafeTakeAll, Skyrim'de "Hepsini Al" özelliği kullanıldığında meydana gelen çökmeleri ve kararsızlıkları gidermek için tasarlanmış özel bir SKSE eklentisidir. Toplu envanter transferleri sırasında bellek bozulmalarını, fizik motoru taşmalarını ve görev durumlarının bozulmasını önlemek için motor seviyesinde bir güvenlik katmanı uygular.
+SafeTakeAll, Skyrim'de "Hepsini Al" özelliği kullanıldığında meydana gelen çökmeleri ve kararsızlıkları gidermek için tasarlanmış özel bir SKSE eklentisidir. Toplu envanter transferleri sırasında bellek bozulmalarını, görev durumlarının bozulmasını önlemek için motor seviyesinde bir güvenlik katmanı uygular.
 
 **Ana Özellikler:**
 - **Atomik Transfer Mantığı:** Eşyaların duplikasyon (katlanma) veya kayıp olmadan güvenli bir şekilde taşınmasını sağlamak için oyunun dahili `AddObjectToContainer` mekanizmalarını kullanır.
