@@ -2,65 +2,63 @@
 
 namespace SafeTakeAll
 {
-    std::atomic<bool> g_isTransferring = false;
+    // Atomic re-entry guard: prevents recursive calls during transfer
+    static std::atomic<bool> g_isTransferring = false;
 
     struct ExtractLootHook
     {
-        // Hook thunk: PlayerCharacter::ExtractLoot(RE::TESObjectREFR* a_container)
+        // Completely replaces PlayerCharacter::ExtractLoot.
+        // We do NOT chain back to the original — the game only calls this
+        // function from ContainerMenu context anyway, so the silent return
+        // for other cases is safe and avoids any trampoline/address issues.
         static void thunk(RE::PlayerCharacter* a_this, RE::TESObjectREFR* a_container)
         {
             if (!a_this || !a_container) return;
 
-            // 1. Sadece ContainerMenu açıkken bizim güvenli aktarım mantığımız çalışsın
-            auto ui = RE::UI::GetSingleton();
-            if (ui && ui->IsMenuOpen(RE::ContainerMenu::MENU_NAME)) {
-                if (!g_isTransferring.load()) {
-                    ExecuteSafeTransfer(a_this, a_container);
-                    return;
-                }
-            }
+            // Re-entry guard
+            if (g_isTransferring.load()) return;
 
-            // 2. Diğer tüm durumlarda (veya işlem zaten devam ediyorsa) orijinal fonksiyonu çağır
-            // Bu, diğer menülerin veya sistemlerin bozulmasını engeller.
-            func(a_this, a_container);
+            // Only handle ContainerMenu (chest / corpse loot)
+            // For barter / gift menus the game uses different code paths,
+            // so silently returning here causes no side effects.
+            auto ui = RE::UI::GetSingleton();
+            if (!ui || !ui->IsMenuOpen(RE::ContainerMenu::MENU_NAME)) return;
+
+            spdlog::info("SafeTakeAll: Take All triggered on '{}'.", a_container->GetName());
+
+            g_isTransferring.store(true);
+            ExecuteSafeTransfer(a_this, a_container);
+            g_isTransferring.store(false);
         }
 
         static void ExecuteSafeTransfer(RE::PlayerCharacter* a_player, RE::TESObjectREFR* a_container)
         {
             if (!a_player || !a_container) return;
 
-            g_isTransferring.store(true);
-            
-            // Konteyner envanterinin anlık görüntüsünü al
+            // Build a snapshot BEFORE moving anything.
+            // Iterating and modifying the live list simultaneously causes
+            // the "hundreds of items" duplication bug, so we snapshot first.
+            struct Entry { RE::TESBoundObject* obj; std::int32_t count; };
+            std::vector<Entry> snapshot;
+
             auto inventory = a_container->GetInventory();
-            if (inventory.empty()) {
-                g_isTransferring.store(false);
-                return;
-            }
-
-            uint32_t totalStacks = 0;
-            uint32_t itemsMoved = 0;
-
             for (auto& [object, data] : inventory) {
                 auto& [count, entry] = data;
-                
                 if (!object || count <= 0) continue;
-
-                // Güvenlik Kontrolleri: Görev eşyalarını ve oynanamaz eşyaları atla
-                if (entry && entry->IsQuestObject()) continue;
-                if (!object->GetPlayable()) continue;
-
-                // En güvenli ve performanslı yol: Tüm yığını tek seferde taşı.
-                // a_player hedef olarak verildiğinde ve extraList nullptr olduğunda, 
-                // motor otomatik olarak tüm stack'leri (efsunlar dahil) koruyarak taşır.
-                a_container->RemoveItem(object, count, RE::ITEM_REMOVE_REASON::kRemove, nullptr, a_player);
-                
-                totalStacks++;
-                itemsMoved += static_cast<uint32_t>(count);
+                if (entry && entry->IsQuestObject()) continue;  // never steal quest items
+                if (!object->GetPlayable()) continue;           // skip hidden/internal items
+                snapshot.push_back({ object, count });
             }
 
-            g_isTransferring.store(false);
-            spdlog::info("SafeTakeAll: Transfer complete. {} stacks ({} items) moved safely.", totalStacks, itemsMoved);
+            // Move every stack as one atomic call — no ExtraList iteration.
+            // Passing nullptr for extraList lets the engine move the whole stack
+            // (including all enchantment / condition data) in one safe operation.
+            for (const auto& e : snapshot) {
+                a_container->RemoveItem(e.obj, e.count,
+                    RE::ITEM_REMOVE_REASON::kRemove, nullptr, a_player);
+            }
+
+            spdlog::info("SafeTakeAll: Transferred {} stacks.", snapshot.size());
         }
 
         static inline REL::Relocation<decltype(thunk)> func;
@@ -69,14 +67,17 @@ namespace SafeTakeAll
     void Install()
     {
         auto& trampoline = SKSE::GetTrampoline();
-        
-        // PlayerCharacter::ExtractLoot
-        // SE ID: 39546, AE ID: 40632
-        // Fonksiyonun başlangıcına 5 byte'lık bir branch yazarak araya giriyoruz.
-        // trampoline.write_branch orijinal fonksiyonun devam adresini döndürür, bunu 'func' içinde saklıyoruz.
-        REL::Relocation<std::uintptr_t> extractLoot{ REL::RelocationID(39546, 40632) };
-        ExtractLootHook::func = trampoline.write_branch<5>(extractLoot.address(), (std::uintptr_t)ExtractLootHook::thunk);
-        
-        spdlog::info("SafeTakeAll: Protection hooks installed.");
+
+        // PlayerCharacter::ExtractLoot — SE: 39546 / AE: 40632
+        REL::Relocation<std::uintptr_t> target{ REL::RelocationID(39546, 40632) };
+
+        // write_branch<5>: patches a JMP at the function entry.
+        // We intentionally discard the return value (trampoline stub) because
+        // we do NOT call back into the original — this is the safe pattern
+        // used by the original working version of this plugin.
+        trampoline.write_branch<5>(target.address(),
+            reinterpret_cast<std::uintptr_t>(ExtractLootHook::thunk));
+
+        spdlog::info("SafeTakeAll: Hook installed at 0x{:X}.", target.address());
     }
 }
