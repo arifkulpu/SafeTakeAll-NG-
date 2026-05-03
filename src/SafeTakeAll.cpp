@@ -11,20 +11,18 @@ namespace SafeTakeAll
         {
             if (!a_this || !a_container) return;
 
-            // 1. İşlem devam ediyorsa tekrar tetikleme
-            if (g_isTransferring.load()) {
-                return;
-            }
-
-            // 2. Sadece ContainerMenu açıkken çalış (UI Güvenliği)
+            // 1. Sadece ContainerMenu açıkken bizim güvenli aktarım mantığımız çalışsın
             auto ui = RE::UI::GetSingleton();
-            if (!ui || !ui->IsMenuOpen(RE::ContainerMenu::MENU_NAME)) {
-                return;
+            if (ui && ui->IsMenuOpen(RE::ContainerMenu::MENU_NAME)) {
+                if (!g_isTransferring.load()) {
+                    ExecuteSafeTransfer(a_this, a_container);
+                    return;
+                }
             }
 
-            spdlog::info("SafeTakeAll: Intercepting Take All for {} ({:08X})", a_container->GetName(), a_container->GetFormID());
-            
-            ExecuteSafeTransfer(a_this, a_container);
+            // 2. Diğer tüm durumlarda (veya işlem zaten devam ediyorsa) orijinal fonksiyonu çağır
+            // Bu, diğer menülerin veya sistemlerin bozulmasını engeller.
+            func(a_this, a_container);
         }
 
         static void ExecuteSafeTransfer(RE::PlayerCharacter* a_player, RE::TESObjectREFR* a_container)
@@ -40,7 +38,9 @@ namespace SafeTakeAll
                 return;
             }
 
-            uint32_t stacksMoved = 0;
+            uint32_t totalStacks = 0;
+            uint32_t itemsMoved = 0;
+
             for (auto& [object, data] : inventory) {
                 auto& [count, entry] = data;
                 
@@ -50,39 +50,17 @@ namespace SafeTakeAll
                 if (entry && entry->IsQuestObject()) continue;
                 if (!object->GetPlayable()) continue;
 
-                // ELEŞTİRİ FİX: ExtraDataList'i koruyarak taşıma işlemi
-                // Her bir alt-yığın (farklı efsunlar/özellikler) için ayrı taşıma yapılır.
-                if (entry && entry->extraLists) {
-                    int32_t movedCountWithExtra = 0;
-                    for (auto* xList : *entry->extraLists) {
-                        if (xList) {
-                            int32_t xCount = 1;
-                            if (xList->HasType(RE::ExtraDataType::kCount)) {
-                                xCount = xList->GetByType<RE::ExtraCount>()->count;
-                            }
-                            
-                            // RemoveItem'a destination (a_player) ve xList vererek tüm özellikleri koruyoruz.
-                            a_container->RemoveItem(object, xCount, RE::ItemRemoveReason::kRemove, xList, a_player);
-                            movedCountWithExtra += xCount;
-                            stacksMoved++;
-                        }
-                    }
-
-                    // Eğer ExtraList'te olmayan (ham/temiz) eşyalar kaldıysa onları da taşı
-                    int32_t remainingCount = count - movedCountWithExtra;
-                    if (remainingCount > 0) {
-                        a_container->RemoveItem(object, remainingCount, RE::ItemRemoveReason::kRemove, nullptr, a_player);
-                        stacksMoved++;
-                    }
-                } else {
-                    // Hiç extra data yoksa direkt tüm yığını taşı
-                    a_container->RemoveItem(object, count, RE::ItemRemoveReason::kRemove, nullptr, a_player);
-                    stacksMoved++;
-                }
+                // En güvenli ve performanslı yol: Tüm yığını tek seferde taşı.
+                // a_player hedef olarak verildiğinde ve extraList nullptr olduğunda, 
+                // motor otomatik olarak tüm stack'leri (efsunlar dahil) koruyarak taşır.
+                a_container->RemoveItem(object, count, RE::ITEM_REMOVE_REASON::kRemove, nullptr, a_player);
+                
+                totalStacks++;
+                itemsMoved += static_cast<uint32_t>(count);
             }
 
             g_isTransferring.store(false);
-            spdlog::info("SafeTakeAll: Transfer complete. {} stacks moved safely.", stacksMoved);
+            spdlog::info("SafeTakeAll: Transfer complete. {} stacks ({} items) moved safely.", totalStacks, itemsMoved);
         }
 
         static inline REL::Relocation<decltype(thunk)> func;
@@ -94,9 +72,10 @@ namespace SafeTakeAll
         
         // PlayerCharacter::ExtractLoot
         // SE ID: 39546, AE ID: 40632
-        // Fonksiyonun başlangıcına 5 byte'lık bir branch (atlama) yazarak tamamen override ediyoruz.
+        // Fonksiyonun başlangıcına 5 byte'lık bir branch yazarak araya giriyoruz.
+        // trampoline.write_branch orijinal fonksiyonun devam adresini döndürür, bunu 'func' içinde saklıyoruz.
         REL::Relocation<std::uintptr_t> extractLoot{ REL::RelocationID(39546, 40632) };
-        trampoline.write_branch<5>(extractLoot.address(), (std::uintptr_t)ExtractLootHook::thunk);
+        ExtractLootHook::func = trampoline.write_branch<5>(extractLoot.address(), (std::uintptr_t)ExtractLootHook::thunk);
         
         spdlog::info("SafeTakeAll: Protection hooks installed.");
     }

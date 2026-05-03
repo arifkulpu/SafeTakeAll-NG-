@@ -4,25 +4,23 @@
 SafeTakeAll is a specialized SKSE plugin designed to eliminate crashes and instability when using the "Take All" feature in Skyrim. It implements a robust, engine-level safety layer during mass inventory transfers to prevent memory corruption, and quest state corruption.
 
 **Key Features:**
-- **Atomic Transfer Logic:** Uses the engine's internal `AddObjectToContainer` mechanisms to ensure items are moved safely without duplication or loss.
-- **Quest Item Protection:** Automatically detects and skips quest-related items during mass transfers to prevent broken quest triggers.
-- **Non-Playable Filter:** Intelligently skips internal or non-playable items (such as body parts or hidden gear from mods like TNG/Underwear overhauls), preventing physics engine overflows.
-- **UI-Only Triggering:** Strictly guarded by `ContainerMenu` state checks, ensuring it only fires when you manually press the "Take All" button, preventing conflicts with auto-loot mods or QuickLoot.
-- **Silent & Optimized:** Reduces engine overhead by processing transfers without sound buffer congestion.
-- **Universal Compatibility:** Built on CommonLibSSE-NG, supporting Skyrim SE, AE, GOG, and VR (1.5.97 - 1.6.1170+).
+- **Enhanced Atomic Transfer:** Uses the engine's optimized `RemoveItem` logic to move entire stacks safely. This preserves all enchantments, stolen tags, and custom data without risk of duplication or infinite loops.
+- **Quest & Safety Filters:** Automatically skips quest items and non-playable objects to prevent broken triggers and physics overflows.
+- **Smart Menu Fallback:** The plugin intelligently detects if you are in a `ContainerMenu`. If the "Take All" function is called in other contexts (like Barter or custom menus), it safely falls back to the original game logic, ensuring total compatibility.
+- **Zero-Loop Logic:** Replaced dangerous manual iterations with engine-level batch transfers, eliminating the "hundreds of items" bug.
+- **Universal Compatibility:** Supports Skyrim SE, AE, GOG, and VR (1.5.97 - 1.6.1170+).
 
 ---
 
 ### Türkçe
-SafeTakeAll, Skyrim'de "Hepsini Al" özelliği kullanıldığında meydana gelen çökmeleri ve kararsızlıkları gidermek için tasarlanmış özel bir SKSE eklentisidir. Toplu envanter transferleri sırasında bellek bozulmalarını, görev durumlarının bozulmasını önlemek için motor seviyesinde bir güvenlik katmanı uygular.
+SafeTakeAll, Skyrim'de "Hepsini Al" özelliği kullanıldığında meydana gelen çökmeleri, kararsızlıkları ve eşya katlanmalarını gidermek için tasarlanmış özel bir SKSE eklentisidir.
 
 **Ana Özellikler:**
-- **Atomik Transfer Mantığı:** Eşyaların duplikasyon (katlanma) veya kayıp olmadan güvenli bir şekilde taşınmasını sağlamak için oyunun dahili `AddObjectToContainer` mekanizmalarını kullanır.
-- **Görev Eşyası Koruması:** Görevlerin bozulmasını önlemek için toplu transferler sırasında görevle ilgili eşyaları otomatik olarak tespit eder ve atlar.
-- **Oynanamaz Eşya Filtresi:** Dahili veya oynanamaz eşyaları (TNG veya iç çamaşırı modlarından gelen gizli parçalar gibi) akıllıca atlayarak fizik motoru taşmalarını engeller.
-- **Sadece Arayüz Tetiklemesi:** `ContainerMenu` durum kontrolleri ile korunur; böylece sadece manuel olarak "Hepsini Al" butonuna bastığınızda çalışır, QuickLoot veya otomatik toplama modlarıyla çakışmaz.
-- **Sessiz ve Optimize:** Ses tamponu yoğunluğunu azaltarak ve motor yükünü minimize ederek transferleri gerçekleştirir.
-- **Evrensel Uyumluluk:** CommonLibSSE-NG tabanlıdır; Skyrim SE, AE, GOG ve VR (1.5.97 - 1.6.1170+) sürümlerini destekler.
+- **Gelişmiş Atomik Transfer:** Eşyaları tek tek taşımak yerine, oyun motorunun kendi optimize edilmiş `RemoveItem` mantığını kullanarak tüm yığınları güvenli bir şekilde taşır. Bu, efsunların ve özel verilerin korunmasını sağlarken sonsuz döngü riskini ortadan kaldırır.
+- **Görev ve Güvenlik Filtreleri:** Görevlerin bozulmasını önlemek için görev eşyalarını ve oynanamaz (gizli) nesneleri otomatik olarak atlar.
+- **Akıllı Menü Uyumluluğu (Fallback):** Eklenti, sadece `ContainerMenu` (sandık/ceset) açıkken devreye girer. Diğer durumlarda (Satıcı menüsü vb.) oyunun orijinal mantığının çalışmasına izin vererek maksimum uyumluluk sağlar.
+- **Hata Giderimleri:** Manuel döngüden kaynaklanan "bir anda yüzlerce eşya gelmesi" hatası tamamen giderilmiştir.
+- **Evrensel Uyumluluk:** CommonLibSSE-NG tabanlıdır; Skyrim SE, AE, GOG ve VR sürümlerini destekler.
 
 ---
 
