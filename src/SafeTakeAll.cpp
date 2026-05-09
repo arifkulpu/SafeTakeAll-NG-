@@ -35,33 +35,49 @@ namespace SafeTakeAll
             if (!a_player || !a_container) return;
 
             auto inventory = a_container->GetInventory();
-            if (inventory.empty()) return;
+            struct SnapshotEntry {
+                RE::TESBoundObject* obj;
+                std::int32_t count;
+                RE::ExtraDataList* extraList;
+            };
+            std::vector<SnapshotEntry> snapshot;
 
-            std::vector<std::pair<RE::TESBoundObject*, std::int32_t>> itemsToTake;
+            for (auto& [object, data] : inventory) {
+                if (!object) continue;
+                
+                auto& [count, entry] = data;
+                if (count <= 0) continue;
 
-            for (auto& [obj, itemData] : inventory) {
-                if (obj && itemData.first > 0) {
-                    // Skip non-playable items
-                    if (!obj->GetPlayable()) continue;
+                // Skip non-playable items
+                if (!object->GetPlayable()) continue;
 
-                    // Skip quest items
-                    if (itemData.second && itemData.second->IsQuestObject()) continue;
+                // Skip quest items
+                if (entry && entry->IsQuestObject()) continue;
 
-                    itemsToTake.push_back({ obj, itemData.first });
+                // Extract ExtraDataList to preserve item properties and prevent skee64 access violations
+                RE::ExtraDataList* xList = nullptr;
+                if (entry && entry->extraLists && !entry->extraLists->empty()) {
+                    xList = entry->extraLists->front();
                 }
+
+                snapshot.push_back({ object, count, xList });
             }
 
-            if (itemsToTake.empty()) return;
+            if (snapshot.empty()) return;
 
-            for (auto& [obj, count] : itemsToTake) {
-                    // Use standard kRemove reason. We originally tried kStoreInContainer
-                    // to bypass hooks, but that causes unnatural engine states resulting in
-                    // skee64/TrueHUD crashes. The STACK_OVERFLOWs were caused by the try-catch 
-                    // block (now removed), so standard kRemove is now safe.
-                    a_container->RemoveItem(obj, count, RE::ITEM_REMOVE_REASON::kRemove, nullptr, a_player);
+            for (auto& item : snapshot) {
+                // Use kStoreInContainer (3) to silently bypass MuJointFix and TNG recursive hooks
+                // Pass item.extraList to ensure RaceMenu (skee64.dll) doesn't access violate on null data
+                a_container->RemoveItem(
+                    item.obj, 
+                    item.count, 
+                    static_cast<RE::ITEM_REMOVE_REASON>(3), 
+                    item.extraList, 
+                    a_player
+                );
             }
 
-            spdlog::info("SafeTakeAll: Successfully processed {} stacks.", itemsToTake.size());
+            spdlog::info("SafeTakeAll: Successfully processed {} stacks.", snapshot.size());
         }
 
         static inline REL::Relocation<decltype(thunk)> func;
