@@ -82,7 +82,7 @@ namespace SafeTakeAll
                     currentContainer->RemoveItem(
                         obj, 
                         item.count, 
-                        static_cast<RE::ITEM_REMOVE_REASON>(3), 
+                        RE::ITEM_REMOVE_REASON::kRemove, 
                         nullptr, 
                         a_player
                     );
