@@ -13,6 +13,13 @@ SafeTakeAll is a specialized SKSE plugin designed to eliminate crashes and insta
 - **Zero Trampoline Conflicts:** Fully replaces `ExtractLoot` to avoid conflicts with other mods hooking the same address.
 - **Universal Compatibility:** Built on CommonLibSSE-NG; supports Skyrim SE, AE, GOG, and VR (1.5.97 – 1.6.1170+).
 
+**Compatibility & Interactions:**
+- **QuickLoot RE / EE / GOG:** Fully compatible. Stabilizes the "Take All" hotkey/button in these modern loot menus.
+- **TNG (The New Gentleman):** Prevents stack overflow crashes by using safe item removal reasons that don't trigger unnecessary mesh updates during mass transfers.
+- **Immersive Weapon Switch:** Resolves engine-level instability when taking multiple favorited/equipped weapons simultaneously.
+- **SPID & SkyPatcher:** Specifically fixes crashes involving items distributed at runtime which often lack persistent engine handles.
+- **Auto Loot Mods:** Provides a safer backbone for any mod that triggers the player's native `ExtractLoot` function.
+
 ---
 
 ### Türkçe
@@ -26,6 +33,13 @@ SafeTakeAll, Skyrim'de "Hepsini Al" özelliği kullanıldığında meydana gelen
 - **Görev ve Güvenlik Filtreleri:** Görevlerin bozulmasını önlemek için görev eşyalarını ve oynanamaz nesneleri otomatik olarak atlar.
 - **Akıllı Menü Tespiti:** Eklenti yalnızca `ContainerMenu` açıkken devreye girer. Diğer menüler (Satıcı, Hediye vb.) tamamen dokunulmadan kalır.
 - **Evrensel Uyumluluk:** CommonLibSSE-NG tabanlıdır; Skyrim SE, AE, GOG ve VR sürümlerini destekler (1.5.97 – 1.6.1170+).
+
+**Uyumluluk ve Etkileşimler:**
+- **QuickLoot RE / EE / GOG:** Tam uyumlu. Bu modern loot menülerindeki "Hepsini Al" kısayolunu/düğmesini stabilize eder.
+- **TNG (The New Gentleman):** Toplu eşya transferi sırasında gereksiz mesh güncellemelerini tetiklemeyen güvenli kaldırma yöntemleri kullanarak "stack overflow" çökmelerini önler.
+- **Immersive Weapon Switch:** Aynı anda birden fazla favori/kuşanılmış silah alındığında oluşan motor seviyesindeki kararsızlıkları giderir.
+- **SPID & SkyPatcher:** Geleneksel kalıcı tutamaçlara sahip olmayan ve çalışma zamanında dağıtılan eşyalarla ilgili çökmeleri özel olarak düzeltir.
+- **Otomatik Loot Modları:** Oyuncunun yerel `ExtractLoot` fonksiyonunu tetikleyen tüm modlar için daha güvenli bir altyapı sağlar.
 
 ---
 
