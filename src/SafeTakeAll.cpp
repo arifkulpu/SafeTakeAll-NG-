@@ -54,12 +54,11 @@ namespace SafeTakeAll
             if (itemsToTake.empty()) return;
 
             for (auto& [obj, count] : itemsToTake) {
-                    // Use kStoreInContainer to bypass intrusive mod hooks
-                    // (like TNG, MuJointFix, ImmersiveWeaponSwitch) that monitor standard removals,
-                    // while still preserving ExtraDataList by providing a_player as destination.
-                    // IMPORTANT: No try-catch block here. Catching SEH exceptions across DLL 
-                    // boundaries corrupts the MSVC stack pointer, leading to STACK_OVERFLOW!
-                    a_container->RemoveItem(obj, count, RE::ITEM_REMOVE_REASON::kStoreInContainer, nullptr, a_player);
+                    // Use standard kRemove reason. We originally tried kStoreInContainer
+                    // to bypass hooks, but that causes unnatural engine states resulting in
+                    // skee64/TrueHUD crashes. The STACK_OVERFLOWs were caused by the try-catch 
+                    // block (now removed), so standard kRemove is now safe.
+                    a_container->RemoveItem(obj, count, RE::ITEM_REMOVE_REASON::kRemove, nullptr, a_player);
             }
 
             spdlog::info("SafeTakeAll: Successfully processed {} stacks.", itemsToTake.size());
