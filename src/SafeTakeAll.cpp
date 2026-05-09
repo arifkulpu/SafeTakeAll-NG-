@@ -2,8 +2,8 @@
 
 namespace SafeTakeAll
 {
-    // Atomic re-entry guard: prevents recursive calls during transfer
-    static std::atomic<bool> g_isTransferring = false;
+    // Re-entry guard: prevents recursive calls during transfer on the same thread
+    static thread_local bool g_isTransferring = false;
 
     struct ExtractLootHook
     {
@@ -16,49 +16,82 @@ namespace SafeTakeAll
             if (!a_this || !a_container) return;
 
             // Re-entry guard
-            if (g_isTransferring.load()) return;
+            if (g_isTransferring) return;
 
-            // Only handle ContainerMenu (chest / corpse loot)
-            // For barter / gift menus the game uses different code paths,
-            // so silently returning here causes no side effects.
             auto ui = RE::UI::GetSingleton();
             if (!ui || !ui->IsMenuOpen(RE::ContainerMenu::MENU_NAME)) return;
 
-            spdlog::info("SafeTakeAll: Take All triggered on '{}'.", a_container->GetName());
-
-            g_isTransferring.store(true);
-            ExecuteSafeTransfer(a_this, a_container);
-            g_isTransferring.store(false);
+            g_isTransferring = true;
+            try {
+                ExecuteSafeTransfer(a_this, a_container);
+            } catch (...) {
+                spdlog::error("SafeTakeAll: Critical error during transfer.");
+            }
+            g_isTransferring = false;
         }
 
         static void ExecuteSafeTransfer(RE::PlayerCharacter* a_player, RE::TESObjectREFR* a_container)
         {
             if (!a_player || !a_container) return;
 
-            // Build a snapshot BEFORE moving anything.
-            // Iterating and modifying the live list simultaneously causes
-            // the "hundreds of items" duplication bug, so we snapshot first.
-            struct Entry { RE::TESBoundObject* obj; std::int32_t count; };
-            std::vector<Entry> snapshot;
-
+            // Get a snapshot of the inventory to avoid iterator invalidation or pointer issues.
+            // Using a map first to aggregate counts, then a vector of FormIDs for safety.
             auto inventory = a_container->GetInventory();
+            if (inventory.empty()) return;
+
+            struct SnapshotEntry {
+                RE::FormID formID;
+                std::int32_t count;
+            };
+            std::vector<SnapshotEntry> snapshot;
+
             for (auto& [object, data] : inventory) {
+                if (!object) continue;
+                
                 auto& [count, entry] = data;
-                if (!object || count <= 0) continue;
-                if (entry && entry->IsQuestObject()) continue;  // never steal quest items
-                if (!object->GetPlayable()) continue;           // skip hidden/internal items
-                snapshot.push_back({ object, count });
+                if (count <= 0) continue;
+
+                // Skip non-playable items (like hidden outfits or engine items)
+                if (!object->GetPlayable()) continue;
+
+                // Skip quest items
+                if (entry && entry->IsQuestObject()) continue;
+
+                snapshot.push_back({ object->GetFormID(), count });
             }
 
-            // Move every stack as one atomic call — no ExtraList iteration.
-            // Passing nullptr for extraList lets the engine move the whole stack
-            // (including all enchantment / condition data) in one safe operation.
-            for (const auto& e : snapshot) {
-                a_container->RemoveItem(e.obj, e.count,
-                    RE::ITEM_REMOVE_REASON::kRemove, nullptr, a_player);
+            if (snapshot.empty()) return;
+
+            // Use a handle to track the container's validity throughout the loop
+            auto containerHandle = a_container->GetHandle();
+
+            for (const auto& item : snapshot) {
+                // Verify container still exists and player is valid
+                if (!containerHandle || !a_player) break;
+                auto* currentContainer = containerHandle.get().get();
+                if (!currentContainer) break;
+
+                // Lookup the object by ID to ensure it hasn't been deleted
+                auto* obj = RE::TESForm::LookupByID<RE::TESBoundObject>(item.formID);
+                if (!obj) continue;
+
+                try {
+                    // Use reason 3 (kDropping) for better compatibility with mods like TNG and ImmersiveWeaponSwitch.
+                    // These mods often hook kRemove (0) to trigger heavy mesh/behavior updates, 
+                    // which can lead to stack overflows during mass transfers.
+                    currentContainer->RemoveItem(
+                        obj, 
+                        item.count, 
+                        static_cast<RE::ITEM_REMOVE_REASON>(3), 
+                        nullptr, 
+                        a_player
+                    );
+                } catch (...) {
+                    // Silently continue to the next item if one fails
+                }
             }
 
-            spdlog::info("SafeTakeAll: Transferred {} stacks.", snapshot.size());
+            spdlog::info("SafeTakeAll: Successfully processed {} stacks.", snapshot.size());
         }
 
         static inline REL::Relocation<decltype(thunk)> func;
