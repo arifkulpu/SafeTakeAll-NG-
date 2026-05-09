@@ -15,8 +15,7 @@ SafeTakeAll is a specialized SKSE plugin designed to eliminate crashes and insta
 
 **Compatibility & Interactions:**
 - **QuickLoot RE / EE / GOG:** Fully compatible. Stabilizes the "Take All" hotkey/button in these modern loot menus.
-- **TNG (The New Gentleman):** Prevents stack overflow crashes by using standardized removal procedures that ensure TNG's mesh updates are handled predictably without infinite recursion.
-- **Immersive Weapon Switch:** Resolves engine-level instability when taking multiple favorited/equipped weapons simultaneously.
+- **TNG (The New Gentleman) & MuJointFix:** Now uses a dual-step "Silent-Add, Silent-Remove" mechanism. By bypassing the engine's native "Transfer" events, it prevents these mods from triggering heavy refreshes on every item, completely eliminating stack overflow crashes.
 - **SPID & SkyPatcher:** Specifically fixes crashes involving items distributed at runtime which often lack persistent engine handles.
 - **Auto Loot Mods:** Provides a safer backbone for any mod that triggers the player's native `ExtractLoot` function.
 
@@ -36,8 +35,7 @@ SafeTakeAll, Skyrim'de "Hepsini Al" özelliği kullanıldığında meydana gelen
 
 **Uyumluluk ve Etkileşimler:**
 - **QuickLoot RE / EE / GOG:** Tam uyumlu. Bu modern loot menülerindeki "Hepsini Al" kısayolunu/düğmesini stabilize eder.
-- **TNG (The New Gentleman):** TNG'nin mesh güncellemelerini sonsuz özyinelemeye (recursion) girmeden öngörülebilir şekilde işlemesini sağlayan standartlaştırılmış kaldırma prosedürlerini kullanarak "stack overflow" çökmelerini önler.
-- **Immersive Weapon Switch:** Aynı anda birden fazla favori/kuşanılmış silah alındığında oluşan motor seviyesindeki kararsızlıkları giderir.
+- **TNG (The New Gentleman) & MuJointFix:** Artık iki aşamalı "Sessiz-Ekle, Sessiz-Sil" mekanizması kullanır. Motorun yerel "Transfer" olaylarını bypass ederek, bu modların her eşyada ağır tazeleme yapmasını engeller ve yığın taşması (stack overflow) çökmelerini tamamen ortadan kaldırır.
 - **SPID & SkyPatcher:** Geleneksel kalıcı tutamaçlara sahip olmayan ve çalışma zamanında dağıtılan eşyalarla ilgili çökmeleri özel olarak düzeltir.
 - **Otomatik Loot Modları:** Oyuncunun yerel `ExtractLoot` fonksiyonunu tetikleyen tüm modlar için daha güvenli bir altyapı sağlar.
 

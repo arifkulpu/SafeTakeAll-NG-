@@ -34,64 +34,37 @@ namespace SafeTakeAll
         {
             if (!a_player || !a_container) return;
 
-            // Get a snapshot of the inventory to avoid iterator invalidation or pointer issues.
-            // Using a map first to aggregate counts, then a vector of FormIDs for safety.
             auto inventory = a_container->GetInventory();
             if (inventory.empty()) return;
 
-            struct SnapshotEntry {
-                RE::FormID formID;
-                std::int32_t count;
-            };
-            std::vector<SnapshotEntry> snapshot;
+            std::vector<std::pair<RE::TESBoundObject*, std::int32_t>> itemsToTake;
 
-            for (auto& [object, data] : inventory) {
-                if (!object) continue;
-                
-                auto& [count, entry] = data;
-                if (count <= 0) continue;
+            for (auto& [obj, itemData] : inventory) {
+                if (obj && itemData.first > 0) {
+                    // Skip non-playable items
+                    if (!obj->GetPlayable()) continue;
 
-                // Skip non-playable items (like hidden outfits or engine items)
-                if (!object->GetPlayable()) continue;
+                    // Skip quest items
+                    if (itemData.second && itemData.second->IsQuestObject()) continue;
 
-                // Skip quest items
-                if (entry && entry->IsQuestObject()) continue;
-
-                snapshot.push_back({ object->GetFormID(), count });
-            }
-
-            if (snapshot.empty()) return;
-
-            // Use a handle to track the container's validity throughout the loop
-            auto containerHandle = a_container->GetHandle();
-
-            for (const auto& item : snapshot) {
-                // Verify container still exists and player is valid
-                if (!containerHandle || !a_player) break;
-                auto* currentContainer = containerHandle.get().get();
-                if (!currentContainer) break;
-
-                // Lookup the object by ID to ensure it hasn't been deleted
-                auto* obj = RE::TESForm::LookupByID<RE::TESBoundObject>(item.formID);
-                if (!obj) continue;
-
-                try {
-                    // Use reason 3 (kDropping) for better compatibility with mods like TNG and ImmersiveWeaponSwitch.
-                    // These mods often hook kRemove (0) to trigger heavy mesh/behavior updates, 
-                    // which can lead to stack overflows during mass transfers.
-                    currentContainer->RemoveItem(
-                        obj, 
-                        item.count, 
-                        RE::ITEM_REMOVE_REASON::kRemove, 
-                        nullptr, 
-                        a_player
-                    );
-                } catch (...) {
-                    // Silently continue to the next item if one fails
+                    itemsToTake.push_back({ obj, itemData.first });
                 }
             }
 
-            spdlog::info("SafeTakeAll: Successfully processed {} stacks.", snapshot.size());
+            if (itemsToTake.empty()) return;
+
+            for (auto& [obj, count] : itemsToTake) {
+                try {
+                    // We use the standard engine transfer logic.
+                    // The g_isTransferring recursion guard at the hook level
+                    // prevents other mods' hooks from causing a loop back into ExtractLoot.
+                    a_container->RemoveItem(obj, count, RE::ITEM_REMOVE_REASON::kRemove, nullptr, a_player);
+                } catch (...) {
+                    continue;
+                }
+            }
+
+            spdlog::info("SafeTakeAll: Successfully processed {} stacks.", itemsToTake.size());
         }
 
         static inline REL::Relocation<decltype(thunk)> func;
