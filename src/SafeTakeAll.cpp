@@ -55,10 +55,10 @@ namespace SafeTakeAll
 
             for (auto& [obj, count] : itemsToTake) {
                 try {
-                    // We use the standard engine transfer logic.
-                    // The g_isTransferring recursion guard at the hook level
-                    // prevents other mods' hooks from causing a loop back into ExtractLoot.
-                    a_container->RemoveItem(obj, count, RE::ITEM_REMOVE_REASON::kRemove, nullptr, a_player);
+                    // Use kStoreInContainer instead of kRemove to bypass intrusive mod hooks
+                    // (like TNG, MuJointFix, ImmersiveWeaponSwitch) that monitor standard removals,
+                    // while still preserving ExtraDataList by providing a_player as destination.
+                    a_container->RemoveItem(obj, count, RE::ITEM_REMOVE_REASON::kStoreInContainer, nullptr, a_player);
                 } catch (...) {
                     continue;
                 }
