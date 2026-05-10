@@ -15,6 +15,9 @@ namespace SafeTakeAll
         {
             if (!a_this || !a_container) return;
 
+            // Safety: Ensure we only trigger for the player to avoid affecting followers
+            if (a_this != RE::PlayerCharacter::GetSingleton()) return;
+
             // Re-entry guard
             if (g_isTransferring) return;
 
@@ -66,12 +69,12 @@ namespace SafeTakeAll
             if (snapshot.empty()) return;
 
             for (auto& item : snapshot) {
-                // Use kStoreInContainer (3) to silently bypass MuJointFix and TNG recursive hooks
+                // Use kStoreInContainer to silently bypass MuJointFix and TNG recursive hooks
                 // Pass item.extraList to ensure RaceMenu (skee64.dll) doesn't access violate on null data
                 a_container->RemoveItem(
                     item.obj, 
                     item.count, 
-                    static_cast<RE::ITEM_REMOVE_REASON>(3), 
+                    RE::ITEM_REMOVE_REASON::kStoreInContainer, 
                     item.extraList, 
                     a_player
                 );
