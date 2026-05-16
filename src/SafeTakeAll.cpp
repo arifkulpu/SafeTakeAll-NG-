@@ -5,6 +5,19 @@ namespace SafeTakeAll
     // Re-entry guard: prevents recursive calls during transfer on the same thread
     static thread_local bool g_isTransferring = false;
 
+    // Helper: Returns the TESObjectREFR that the ContainerMenu currently has open.
+    // GetTargetRefHandle() is a static method — it stores the handle internally
+    // in a global/singleton and does not require a ContainerMenu instance.
+    static RE::TESObjectREFR* GetContainerMenuTarget()
+    {
+        RE::RefHandle handle = RE::ContainerMenu::GetTargetRefHandle();
+        if (!handle) return nullptr;
+
+        RE::NiPointer<RE::TESObjectREFR> targetRef;
+        RE::TESObjectREFR::LookupByHandle(handle, targetRef);
+        return targetRef.get();
+    }
+
     struct ExtractLootHook
     {
         // Completely replaces PlayerCharacter::ExtractLoot.
@@ -21,8 +34,24 @@ namespace SafeTakeAll
             // Re-entry guard
             if (g_isTransferring) return;
 
+            // Guard 1: ContainerMenu must be open
             auto ui = RE::UI::GetSingleton();
             if (!ui || !ui->IsMenuOpen(RE::ContainerMenu::MENU_NAME)) return;
+
+            // Guard 2: The container passed to this function MUST be the exact ref
+            // that the ContainerMenu is currently showing. Without this check,
+            // other mods or engine callbacks can trigger ExtractLoot on dead NPCs
+            // (or nearby actors) even while a different container is open, causing
+            // mass auto-looting of unrelated actors.
+            auto* menuTarget = GetContainerMenuTarget();
+            if (!menuTarget || menuTarget != a_container) {
+                spdlog::warn(
+                    "SafeTakeAll: ExtractLoot called for ref 0x{:X} but ContainerMenu target is 0x{:X} — blocked.",
+                    a_container->GetFormID(),
+                    menuTarget ? menuTarget->GetFormID() : 0
+                );
+                return;
+            }
 
             g_isTransferring = true;
             try {
